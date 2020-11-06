@@ -1181,7 +1181,6 @@ struct check_access_tests {
  * as defined in TESTS. */
 static svn_error_t *
 authz_check_access(svn_authz_t *authz_cfg,
-                   const char *authz_contents,
                    const struct check_access_tests *tests,
                    apr_pool_t *pool)
 {
@@ -1203,7 +1202,7 @@ authz_check_access(svn_authz_t *authz_cfg,
         {
           return svn_error_createf(SVN_ERR_TEST_FAILED, NULL,
                                    "Authz incorrectly %s %s%s access "
-                                   "to %s%s%s for user %s\n%s",
+                                   "to %s%s%s for user %s",
                                    access_granted ?
                                    "grants" : "denies",
                                    tests[i].required
@@ -1218,8 +1217,7 @@ authz_check_access(svn_authz_t *authz_cfg,
                                    ":" : "",
                                    tests[i].path,
                                    tests[i].user ?
-                                   tests[i].user : "-",
-                                   authz_contents);
+                                   tests[i].user : "-");
         }
     }
 
@@ -1314,11 +1312,11 @@ authz(apr_pool_t *pool)
   SVN_ERR(authz_get_handle(&authz_cfg, contents, FALSE, subpool));
 
   /* Loop over the test array and test each case. */
-  SVN_ERR(authz_check_access(authz_cfg, contents, test_set, subpool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set, subpool));
 
   /* Repeat the previous test on disk */
   SVN_ERR(authz_get_handle(&authz_cfg, contents, TRUE, subpool));
-  SVN_ERR(authz_check_access(authz_cfg, contents, test_set, subpool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set, subpool));
 
   /* The authz rules for the phase 2 tests, first case (cyclic
      dependency). */
@@ -1498,7 +1496,7 @@ test_authz_wildcards(apr_pool_t *pool)
   SVN_ERR(authz_get_handle(&authz_cfg, contents, FALSE, pool));
 
   /* Loop over the test array and test each case. */
-  SVN_ERR(authz_check_access(authz_cfg, contents, test_set, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set, pool));
 
   return SVN_NO_ERROR;
 }
@@ -1654,7 +1652,7 @@ test_authz_prefixes(apr_pool_t *pool)
             test->path = test_paths[i];
 
           /* Loop over the test array and test each case. */
-          SVN_ERR(authz_check_access(authz_cfg, contents, test_set, iterpool));
+          SVN_ERR(authz_check_access(authz_cfg, test_set, iterpool));
         }
     }
 
@@ -1721,7 +1719,7 @@ test_authz_recursive_override(apr_pool_t *pool)
   SVN_ERR(authz_get_handle(&authz_cfg, contents, FALSE, pool));
 
   /* Loop over the test array and test each case. */
-  SVN_ERR(authz_check_access(authz_cfg, contents, test_set, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set, pool));
 
   /* That's a wrap! */
   return SVN_NO_ERROR;
@@ -1900,16 +1898,16 @@ test_authz_pattern_tests(apr_pool_t *pool)
 
   /* Verify that the rules are applies as expected. */
   SVN_ERR(authz_get_handle(&authz_cfg, contents, FALSE, pool));
-  SVN_ERR(authz_check_access(authz_cfg, contents, test_set, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set, pool));
 
   SVN_ERR(authz_get_handle(&authz_cfg, contents2, FALSE, pool));
-  SVN_ERR(authz_check_access(authz_cfg, contents2, test_set2, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set2, pool));
 
   SVN_ERR(authz_get_handle(&authz_cfg, contents3, FALSE, pool));
-  SVN_ERR(authz_check_access(authz_cfg, contents3, test_set3, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set3, pool));
 
   SVN_ERR(authz_get_handle(&authz_cfg, contents4, FALSE, pool));
-  SVN_ERR(authz_check_access(authz_cfg, contents4, test_set4, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set4, pool));
 
   /* That's a wrap! */
   return SVN_NO_ERROR;
@@ -1986,7 +1984,7 @@ in_repo_authz(const svn_test_opts_t *opts,
 
   /* absolute file URL. */
   SVN_ERR(svn_repos_authz_read2(&authz_cfg, authz_url, NULL, TRUE, pool));
-  SVN_ERR(authz_check_access(authz_cfg, authz_contents, test_set, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set, pool));
 
   /* Non-existent path in the repo with must_exist set to FALSE */
   SVN_ERR(svn_repos_authz_read2(&authz_cfg, noent_authz_url, NULL,
@@ -2129,7 +2127,7 @@ in_repo_groups_authz(const svn_test_opts_t *opts,
 
   /* absolute file URLs. */
   SVN_ERR(svn_repos_authz_read2(&authz_cfg, authz_url, groups_url, TRUE, pool));
-  SVN_ERR(authz_check_access(authz_cfg, authz_contents, test_set, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set, pool));
 
   /* Non-existent path for the groups file with must_exist
    * set to TRUE */
@@ -2320,12 +2318,12 @@ groups_authz(const svn_test_opts_t *opts,
   SVN_ERR(authz_groups_get_handle(&authz_cfg, authz_contents,
                                   groups_contents, TRUE, pool));
 
-  SVN_ERR(authz_check_access(authz_cfg, authz_contents, test_set1, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set1, pool));
 
   SVN_ERR(authz_groups_get_handle(&authz_cfg, authz_contents,
                                   groups_contents, FALSE, pool));
 
-  SVN_ERR(authz_check_access(authz_cfg, authz_contents, test_set1, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set1, pool));
 
   /* Access rights in the global groups file are forbidden. */
   groups_contents =
@@ -2357,12 +2355,12 @@ groups_authz(const svn_test_opts_t *opts,
   SVN_ERR(authz_groups_get_handle(&authz_cfg, authz_contents,
                                   groups_contents, TRUE, pool));
 
-  SVN_ERR(authz_check_access(authz_cfg, authz_contents, test_set2, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set2, pool));
 
   SVN_ERR(authz_groups_get_handle(&authz_cfg, authz_contents,
                                   groups_contents, FALSE, pool));
 
-  SVN_ERR(authz_check_access(authz_cfg, authz_contents, test_set2, pool));
+  SVN_ERR(authz_check_access(authz_cfg, test_set2, pool));
 
   /* Local groups cannot be used in conjunction with global groups. */
   groups_contents =

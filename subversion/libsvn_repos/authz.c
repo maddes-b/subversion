@@ -889,7 +889,9 @@ create_user_authz(authz_full_t *authz,
   /* Use a separate sub-pool to keep memory usage tight. */
   apr_pool_t *subpool = svn_pool_create(scratch_pool);
 
-  /* Find all ACLs for REPOSITORY. */
+  /* Find all ACLs for REPOSITORY.
+   * Note that repo-specific rules replace global rules,
+   * even if they don't apply to the current user. */
   apr_array_header_t *acls = apr_array_make(subpool, authz->acls->nelts,
                                             sizeof(authz_acl_t *));
   for (i = 0; i < authz->acls->nelts; ++i)
@@ -906,36 +908,15 @@ create_user_authz(authz_full_t *authz,
                 = APR_ARRAY_IDX(acls, acls->nelts - 1, const authz_acl_t *);
               if (svn_authz__compare_paths(&prev_acl->rule, &acl->rule) == 0)
                 {
-                  svn_boolean_t global_acl_applies;
-                  svn_boolean_t repos_acl_applies;
-
-                  /* Previous ACL is a global rule. */
                   SVN_ERR_ASSERT_NO_RETURN(!strcmp(prev_acl->rule.repos,
                                                    AUTHZ_ANY_REPOSITORY));
-                  /* Current ACL is a per-repository rule. */
                   SVN_ERR_ASSERT_NO_RETURN(strcmp(acl->rule.repos,
                                                   AUTHZ_ANY_REPOSITORY));
-
-                  global_acl_applies =
-                    svn_authz__get_acl_access(NULL, prev_acl, user, repository);
-                  repos_acl_applies =
-                    svn_authz__get_acl_access(NULL, acl, user, repository);
-
-                  /* Prefer rules which apply to both this user and this path
-                   * over rules which apply only to the path. In cases where
-                   * both rules apply to user and path, always prefer the
-                   * repository-specific rule. */
-                  if (!global_acl_applies || repos_acl_applies)
-                    {
-                      apr_array_pop(acls);
-                      APR_ARRAY_PUSH(acls, const authz_acl_t *) = acl;
-                    }
+                  apr_array_pop(acls);
                 }
-              else
-                APR_ARRAY_PUSH(acls, const authz_acl_t *) = acl;
             }
-          else
-            APR_ARRAY_PUSH(acls, const authz_acl_t *) = acl;
+
+          APR_ARRAY_PUSH(acls, const authz_acl_t *) = acl;
         }
     }
 
