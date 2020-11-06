@@ -39,7 +39,12 @@
 
 #include <apr.h>                /* for STDIN_FILENO */
 #include <apr_errno.h>          /* for apr_strerror */
+#include <apr_version.h>
+#if APR_VERSION_AT_LEAST(1,5,0)
 #include <apr_escape.h>
+#else
+#include "private/svn_dep_compat.h"
+#endif
 #include <apr_general.h>        /* for apr_initialize/apr_terminate */
 #include <apr_strings.h>        /* for apr_snprintf */
 #include <apr_pools.h>
@@ -74,7 +79,7 @@
 
 #if defined(WIN32) && defined(_MSC_VER) && (_MSC_VER < 1400)
 /* Before Visual Studio 2005, the C runtime didn't handle encodings for the
-   for the stdio output handling. */
+   stdio output handling. */
 #define CMDLINE_USE_CUSTOM_ENCODING
 
 /* The stdin encoding. If null, it's the same as the native encoding. */
@@ -1400,6 +1405,7 @@ svn_cmdline__edit_file_externally(const char *path,
                                   apr_pool_t *pool)
 {
   const char *editor, *cmd, *base_dir, *file_name, *base_dir_apr;
+  const char *file_name_local;
   char *old_cwd;
   int sys_err;
   apr_status_t apr_err;
@@ -1423,9 +1429,11 @@ svn_cmdline__edit_file_externally(const char *path,
     return svn_error_wrap_apr
       (apr_err, _("Can't change working directory to '%s'"), base_dir);
 
+  SVN_ERR(svn_path_cstring_from_utf8(&file_name_local,
+                                     escape_path(pool, file_name), pool));
   /* editor is explicitly documented as being interpreted by the user's shell,
      and as such should already be quoted/escaped as needed. */
-  cmd = apr_psprintf(pool, "%s %s", editor, escape_path(pool, file_name));
+  cmd = apr_psprintf(pool, "%s %s", editor, file_name_local);
   sys_err = system(cmd);
 
   apr_err = apr_filepath_set(old_cwd, pool);
@@ -1581,13 +1589,14 @@ svn_cmdline__edit_string_externally(svn_string_t **edited_contents /* UTF-8! */,
     goto cleanup;
 
   /* Prepare the editor command line.  */
-  err = svn_utf_cstring_from_utf8(&tmpfile_native, tmpfile_name, pool);
+  err = svn_utf_cstring_from_utf8(&tmpfile_native,
+                                  escape_path(pool, tmpfile_name), pool);
   if (err)
     goto cleanup;
 
   /* editor is explicitly documented as being interpreted by the user's shell,
      and as such should already be quoted/escaped as needed. */
-  cmd = apr_psprintf(pool, "%s %s", editor, escape_path(pool, tmpfile_native));
+  cmd = apr_psprintf(pool, "%s %s", editor, tmpfile_native);
 
   /* If the caller wants us to leave the file around, return the path
      of the file we'll use, and make a note not to destroy it.  */
